@@ -218,8 +218,8 @@
   function render() {
     if (!ctx) return;
     
-    // Clear canvas with subtle background
-    ctx.fillStyle = 'rgba(15, 15, 35, 0.1)';
+    // Clear canvas with subtle fade effect for trails
+    ctx.fillStyle = 'rgba(15, 15, 35, 0.15)';
     ctx.fillRect(0, 0, width, height);
     
     // Draw particle trails first

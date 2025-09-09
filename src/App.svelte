@@ -61,6 +61,28 @@
       radial-gradient(circle at 40% 60%, rgba(255, 107, 107, 0.05) 0%, transparent 50%);
     pointer-events: none;
     z-index: -1;
+    animation: floatingOrbs 20s ease-in-out infinite;
+  }
+
+  @keyframes floatingOrbs {
+    0%, 100% { 
+      background: 
+        radial-gradient(circle at 20% 20%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 204, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 60%, rgba(255, 107, 107, 0.05) 0%, transparent 50%);
+    }
+    33% { 
+      background: 
+        radial-gradient(circle at 80% 30%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 20% 70%, rgba(0, 204, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 60% 20%, rgba(255, 107, 107, 0.05) 0%, transparent 50%);
+    }
+    66% { 
+      background: 
+        radial-gradient(circle at 40% 80%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 70% 20%, rgba(0, 204, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 20% 40%, rgba(255, 107, 107, 0.05) 0%, transparent 50%);
+    }
   }
 
   .app-header {
