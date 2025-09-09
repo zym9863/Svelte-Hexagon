@@ -1,5 +1,7 @@
 # 🎯 旋转六边形弹跳球 - 物理引擎模拟
 
+**[English Version](./README-EN.md)** | **[中文版](./README.md)**
+
 一个基于 Svelte + TypeScript + Vite 的高性能物理模拟项目，展示了一个在旋转六边形内弹跳的小球，具有真实的重力、摩擦力和碰撞效果。
 
 ## ✨ 功能特性
