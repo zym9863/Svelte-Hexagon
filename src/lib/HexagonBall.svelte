@@ -21,6 +21,14 @@
     y: number;
   }
 
+  interface ParticleTrail {
+    x: number;
+    y: number;
+    life: number;
+    maxLife: number;
+    size: number;
+  }
+
   // Component props
   export let width = 600;
   export let height = 600;
@@ -43,6 +51,8 @@
   let rotationAngle = 0;
   let isRunning = true;
   let hexagonVertices: Point[] = [];
+  let particleTrails: ParticleTrail[] = [];
+  let collisionGlow = 0;
 
   // Initialize ball state
   function initBall(): BallState {
@@ -108,6 +118,35 @@
     };
   }
 
+  // Add particle trail
+  function addParticleTrail() {
+    const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+    if (speed > 0.5) {
+      particleTrails.push({
+        x: ball.x,
+        y: ball.y,
+        life: 30,
+        maxLife: 30,
+        size: Math.min(6, speed * 2)
+      });
+    }
+    
+    // Limit number of particles for performance
+    if (particleTrails.length > 20) {
+      particleTrails.shift();
+    }
+  }
+
+  // Update particle trails
+  function updateParticleTrails() {
+    for (let i = particleTrails.length - 1; i >= 0; i--) {
+      particleTrails[i].life--;
+      if (particleTrails[i].life <= 0) {
+        particleTrails.splice(i, 1);
+      }
+    }
+  }
+
   // Check collision with hexagon walls and handle bounce
   function checkCollision(): boolean {
     for (let i = 0; i < hexagonVertices.length; i++) {
@@ -134,6 +173,9 @@
         ball.vx *= physics.restitution;
         ball.vy *= physics.restitution;
         
+        // Add collision glow effect
+        collisionGlow = 15;
+        
         return true;
       }
     }
@@ -153,6 +195,17 @@
     ball.x += ball.vx;
     ball.y += ball.vy;
     
+    // Add particle trail
+    addParticleTrail();
+    
+    // Update particle trails
+    updateParticleTrails();
+    
+    // Reduce collision glow
+    if (collisionGlow > 0) {
+      collisionGlow--;
+    }
+    
     // Check collisions
     checkCollision();
     
@@ -165,13 +218,44 @@
   function render() {
     if (!ctx) return;
     
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
+    // Clear canvas with subtle fade effect for trails
+    ctx.fillStyle = 'rgba(15, 15, 35, 0.15)';
+    ctx.fillRect(0, 0, width, height);
     
-    // Draw hexagon with glow effect
-    ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = 10;
-    ctx.strokeStyle = '#00ff88';
+    // Draw particle trails first
+    for (let i = 0; i < particleTrails.length; i++) {
+      const particle = particleTrails[i];
+      const alpha = particle.life / particle.maxLife;
+      const size = particle.size * alpha;
+      
+      const gradient = ctx.createRadialGradient(
+        particle.x, particle.y, 0,
+        particle.x, particle.y, size
+      );
+      gradient.addColorStop(0, `rgba(255, 135, 135, ${alpha * 0.8})`);
+      gradient.addColorStop(1, `rgba(255, 107, 107, 0)`);
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Draw enhanced hexagon with dynamic glow
+    const hexagonGlow = 10 + collisionGlow;
+    ctx.shadowColor = `rgba(0, 255, 136, ${0.6 + collisionGlow * 0.03})`;
+    ctx.shadowBlur = hexagonGlow;
+    
+    // Create hexagon gradient
+    const hexagonGradient = ctx.createLinearGradient(
+      width / 2 - hexagonRadius, height / 2 - hexagonRadius,
+      width / 2 + hexagonRadius, height / 2 + hexagonRadius
+    );
+    hexagonGradient.addColorStop(0, '#00ff88');
+    hexagonGradient.addColorStop(0.5, '#00ccff');
+    hexagonGradient.addColorStop(1, '#00ff88');
+    
+    ctx.strokeStyle = hexagonGradient;
     ctx.lineWidth = 3;
     ctx.beginPath();
     
@@ -186,43 +270,57 @@
     ctx.stroke();
     ctx.shadowBlur = 0; // Reset shadow
     
-    // Draw ball with enhanced gradient
+    // Draw ball with enhanced gradient and dynamic glow
+    const ballSpeed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+    const ballGlow = Math.min(20, 5 + ballSpeed * 2 + collisionGlow);
+    
+    ctx.shadowColor = `rgba(255, 107, 107, ${0.6 + collisionGlow * 0.05})`;
+    ctx.shadowBlur = ballGlow;
+    
     const gradient = ctx.createRadialGradient(
-      ball.x - ball.radius * 0.4,
-      ball.y - ball.radius * 0.4,
+      ball.x - ball.radius * 0.3,
+      ball.y - ball.radius * 0.3,
       0,
       ball.x,
       ball.y,
-      ball.radius
+      ball.radius * 1.5
     );
-    gradient.addColorStop(0, '#ff8787');
-    gradient.addColorStop(0.7, '#ff6b6b');
-    gradient.addColorStop(1, '#c92a2a');
+    
+    // Dynamic ball colors based on speed and collision
+    const baseR = 255;
+    const baseG = Math.max(100, 135 - ballSpeed * 10);
+    const baseB = Math.max(100, 135 - ballSpeed * 10 + collisionGlow * 5);
+    
+    gradient.addColorStop(0, `rgb(${baseR}, ${baseG + 50}, ${baseB + 50})`);
+    gradient.addColorStop(0.4, `rgb(${baseR}, ${baseG}, ${baseB})`);
+    gradient.addColorStop(0.8, `rgb(${Math.max(150, baseR - 50)}, ${Math.max(50, baseG - 50)}, ${Math.max(50, baseB - 50)})`);
+    gradient.addColorStop(1, `rgb(${Math.max(100, baseR - 100)}, ${Math.max(20, baseG - 80)}, ${Math.max(20, baseB - 80)})`);
     
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
     ctx.fill();
     
-    // Add ball highlight
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.shadowBlur = 0; // Reset shadow
+    
+    // Add enhanced ball highlight
+    const highlightGradient = ctx.createRadialGradient(
+      ball.x - ball.radius * 0.4,
+      ball.y - ball.radius * 0.4,
+      0,
+      ball.x - ball.radius * 0.4,
+      ball.y - ball.radius * 0.4,
+      ball.radius * 0.5
+    );
+    highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+    highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    
+    ctx.fillStyle = highlightGradient;
     ctx.beginPath();
     ctx.arc(
       ball.x - ball.radius * 0.3,
       ball.y - ball.radius * 0.3,
-      ball.radius * 0.25,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
-    
-    // Add subtle shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-    ctx.beginPath();
-    ctx.arc(
-      ball.x + ball.radius * 0.2,
-      ball.y + ball.radius * 0.2,
-      ball.radius * 0.3,
+      ball.radius * 0.4,
       0,
       Math.PI * 2
     );
@@ -256,6 +354,8 @@
     stop();
     ball = initBall();
     rotationAngle = 0;
+    particleTrails = [];
+    collisionGlow = 0;
     hexagonVertices = calculateHexagonVertices(rotationAngle);
     render();
   }
@@ -383,37 +483,69 @@
 
   .controls {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
+    justify-content: center;
   }
 
   .controls button {
-    padding: 0.5rem 1rem;
-    background: #00ff88;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #00ff88 0%, #00ccff 100%);
     color: #1a1a2e;
     border: none;
-    border-radius: 6px;
-    font-weight: 600;
+    border-radius: 12px;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .controls button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s ease;
   }
 
   .controls button:hover {
-    background: #00cc6a;
-    transform: translateY(-1px);
+    background: linear-gradient(135deg, #00ccff 0%, #00ff88 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 255, 136, 0.4);
+  }
+
+  .controls button:hover::before {
+    left: 100%;
+  }
+
+  .controls button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.3);
   }
 
   .canvas-container {
     position: relative;
-    border: 2px solid #00ff88;
-    border-radius: 8px;
+    border: 3px solid transparent;
+    background: linear-gradient(135deg, #1a1a2e, #0f0f23) padding-box, 
+                linear-gradient(135deg, #00ff88, #00ccff, #00ff88) border-box;
+    border-radius: 16px;
     overflow: hidden;
-    background: #0f0f23;
+    box-shadow: 
+      0 0 30px rgba(0, 255, 136, 0.3),
+      inset 0 0 30px rgba(0, 0, 0, 0.5);
   }
 
   .game-canvas {
     display: block;
-    background: radial-gradient(circle at center, #1a1a2e 0%, #0f0f23 100%);
+    background: radial-gradient(circle at 30% 30%, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
   }
 
   .hexagon-svg {
@@ -425,53 +557,104 @@
 
   .physics-controls {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1rem;
     width: 100%;
-    max-width: 600px;
-    margin-top: 1rem;
+    max-width: 700px;
+    margin-top: 1.5rem;
   }
 
   .control-group {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 0.75rem;
-    border-radius: 6px;
+    gap: 0.75rem;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+    backdrop-filter: blur(10px);
+    padding: 1rem;
+    border-radius: 12px;
     border: 1px solid rgba(0, 255, 136, 0.2);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .control-group::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.5), transparent);
+  }
+
+  .control-group:hover {
+    border-color: rgba(0, 255, 136, 0.4);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 255, 136, 0.1);
   }
 
   .control-group label {
     color: #00ff88;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   .control-group input[type="range"] {
     width: 100%;
-    height: 4px;
-    background: rgba(0, 255, 136, 0.3);
-    border-radius: 2px;
+    height: 6px;
+    background: rgba(0, 255, 136, 0.2);
+    border-radius: 3px;
     outline: none;
     appearance: none;
     -webkit-appearance: none;
+    position: relative;
+  }
+
+  .control-group input[type="range"]::-webkit-slider-track {
+    height: 6px;
+    background: rgba(0, 255, 136, 0.2);
+    border-radius: 3px;
   }
 
   .control-group input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
-    background: #00ff88;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #00ff88, #00ccff);
     border-radius: 50%;
     cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.4);
+    transition: all 0.2s ease;
+  }
+
+  .control-group input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 15px rgba(0, 255, 136, 0.6);
+  }
+
+  .control-group input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #00ff88, #00ccff);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.4);
   }
 
   .control-group span {
     color: #ffffff;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     text-align: center;
-    font-weight: 600;
+    font-weight: 700;
+    background: rgba(0, 255, 136, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
   }
 
   @media (max-width: 768px) {
